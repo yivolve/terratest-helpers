@@ -1,0 +1,64 @@
+name: "Lint PR"
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+
+permissions:
+  pull-requests: write
+  statuses: write
+
+jobs:
+  main:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        id: lint_pr_title
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          subjectPattern: ^((T|t)icket-).+$
+          wip: true
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        # When the previous steps fails, the workflow would stop. By adding this
+        # condition you can continue the execution with the populated error message.
+        if: always() && (steps.lint_pr_title.outputs.error_message != null)
+        with:
+          header: pr-title-lint-error
+          message: |
+            *@${{ github.actor }}*,
+
+            We require pull request titles to follow the convention bellow, which is a slight variation of https://www.conventionalcommits.org/en/v1.0.0/ in which we add the ticket number after the PR type:
+
+            ```
+            Available types:
+              - feat: Ticket-<ticketNumber> A new feature
+              - fix: Ticket-<ticketNumber> A bug fix
+              - docs: Ticket-<ticketNumber> Documentation only changes
+              - style: Ticket-<ticketNumber> Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+              - refactor: Ticket-<ticketNumber> A code change that neither fixes a bug nor adds a feature
+              - perf: Ticket-<ticketNumber> A code change that improves performance
+              - test: Ticket-<ticketNumber> Adding missing tests or correcting existing tests
+              - build: Ticket-<ticketNumber> Changes that affect the build system or external dependencies (example scopes: gulp, broccoli, npm)
+              - ci: Ticket-<ticketNumber> Changes to our CI configuration files and scripts (example scopes: Travis, Circle, BrowserStack, SauceLabs)
+              - chore: Ticket-<ticketNumber> Other changes that don't modify src or test files
+              - revert: Ticket-<ticketNumber> Reverts a previous commit
+            ```
+
+          # Details:
+
+          # ```
+          # ${{ steps.lint_pr_title.outputs.error_message }}
+          # ```
+
+      # Delete a previous comment when the issue has been resolved
+      - if: ${{ steps.lint_pr_title.outputs.error_message == null }}
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: pr-title-lint-error
+          delete: true
